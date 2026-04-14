@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Musician Strengths and Weaknessess Assessment</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont;
+      background: #f7f7f7;
+      display: flex;
+      justify-content: center;
+      padding: 40px;
+    }
+
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 600px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      margin-bottom: 10px;
+    }
+
+    .progress {
+      height: 8px;
+      background: #eee;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+
+    .progress-bar {
+      height: 8px;
+      background: #4CAF50;
+      border-radius: 5px;
+      width: 0%;
+    }
+
+    .question {
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+
+    .scale {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .scale button {
+      flex: 1;
+      margin: 5px;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: white;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .scale button:hover {
+      background: #f0f0f0;
+    }
+
+    #results {
+      display: none;
+      text-align: center;
+    }
+
+    canvas {
+      margin-top: 20px;
+    }
+
+    .summary {
+      margin-top: 20px;
+      font-size: 16px;
+    }
+
+    .description {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <h2>Musician Strengths and Weaknessess Assessment</h2>
+  <p class="description">
+  This assessment evaluates your strengths as a live musician across execution, intuition, creativity, and adaptability. 
+  Answer honestly based on your typical performance experience to get the most accurate results. Answer using a scale of Strongly Disagree to Strongly Agree.
+</p>
+  <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+
+  <div id="quiz">
+    <div class="question" id="questionText"></div>
+
+    <div class="scale">
+      <button onclick="answer(1)">1</button>
+      <button onclick="answer(2)">2</button>
+      <button onclick="answer(3)">3</button>
+      <button onclick="answer(4)">4</button>
+      <button onclick="answer(5)">5</button>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:5px;">
+      <span>Strongly Disagree</span>
+      <span>Strongly Agree</span>
+    </div>
+  </div>
+
+  <div id="results">
+    <h2>Your Results</h2>
+    <canvas id="chart"></canvas>
+    <div class="summary" id="summary"></div>
+  </div>
+
+</div>
+
+<script>
+const categories = ["Execution","Skills","Diversity","Risk","Intuition","SelfAwareness"];
+
+let scores = {};
+let maxScores = {};
+let answers = [];
+let current = 0;
+
+// QUESTIONS (EDIT THESE)
+const questions = [
+  { text: "I stay consistent under pressure", weights: { Execution: 0.75, SelfAwareness: 0.5 }},
+  { text: "I am comfortable trying out new ideas in live settings", weights: { Risk: 1 }},
+  { text: "I am comfortable playing when there is no roadmap or guide", weights: { Intuition: 1, Risk: 1, Skills: 0.75 }},
+  { text: "I can play complex parts fluently", weights: { Skills: 1 }},
+  { text: "I am confident in borrowing elements from multiple genres at any given point in a song", weights: { Diversity: 1, Intuition: 0.25, Risk: 0.75 }},
+  { text: "I notice when I rush during a song", weights: { SelfAwareness: 1 }},
+  { text: "I maintain steady timing, even if the audience is cheering or reacting", weights: { Execution: 1, Skills: 0.5, SelfAwareness: 0.5 }},
+  { text: "I can recover quickly from a mistake without losing focus", weights: { Execution: 1, Skills: 0.5 }},
+  { text: "I feel confident when I take the stage for a live performance", weights: { Execution: 1 }},
+  { text: "I trust my muscle memory to carry me through a performance, even if I feel nervous", weights: { Execution: 1, Skills: 0.5 }},
+  { text: "I stay relaxed and composed, even when mistakes happen", weights: { Execution: 1, SelfAwareness: 1 }},
+  { text: "I can clearly hear myself and stay in sync with the band", weights: { Execution: 0.75, Skills: 1, SelfAwareness: 1 }},
+  { text: "The quality of my performance environment directly affects how well I play", weights: { Execution: 1, Skills: 0.25 }},
+  { text: "I am willing to take creative risks even if I am unsure of the outcome", weights: { Risk: 1, Intuition: 0.75, Skills: 0.5 }},
+  { text: "I feel curious and excited when faced with a new musical challenge", weights: { Risk: 1 }},
+  { text: "I trust my ability to handle the unexpected in a live context", weights: { Risk: 1 }},
+  { text: "I am comfortable experimenting with improvisation in front of an audience", weights: { Risk: 1 }},
+  { text: "I can anticipate where a song is going and adjust my playing accordingly", weights: { Execution: 0.5, Intuition: 1 }},
+  { text: "I can sing or play in the correct key even without a reference track", weights: { Execution: 0.5, Intuition: 1 }},
+  { text: "I can adjust my timing so that I feel connected to the band's groove, even if it shifts", weights: { Execution: 0.5, Intuition: 1 }},
+  { text: "I rely on my instincts to stay aligned with the band without needing external cues", weights: { Intuition: 1 }},
+  { text: "I can quickly play complex chord progressions without hesitation", weights: { Skills: 1 }},
+  { text: "I know a wide range of scales and modes and can apply them in different keys", weights: { Skills: 1 }},
+  { text: "I have a strong understanding of chord inversions and can move fluidly between them", weights: { Skills: 1 }},
+  { text: "I have a solid grasp of music theory", weights: { Skills: 1 }},
+  { text: "I can quickly read and interpret chord charts or lead sheets", weights: { Skills: 1 }},
+  { text: "I understand how to approach rhythm differently depending on the genre", weights: { Diversity: 1 }},
+  { text: "I push myself to try unfamiliar styles or techniques", weights: { Diversity: 1, Risk: 0.75 }},
+  { text: "I experiment with new sounds and textures", weights: { Risk: 1 }},
+  { text: "I feel comfortable deviating from the original score to improvise", weights: { Risk: 1 }},
+  { text: "I can shift between genres smoothly within a single performance", weights: { Diversity: 1 }},
+  { text: "I can hear when I make a mistake", weights: { SelfAwareness: 1 }},
+  { text: "I can hear when others make mistakes", weights: { SelfAwareness: 1 }},
+  { text: "Playing a song means playing it exactly as it was written and recorded", weights: { Execution: 1 }},
+  { text: "Playing a song means playing it in a way that allows me to express myself", weights: { SelfAwareness: 1, Risk: 1 }},
+  { text: "I generally have my own thoughts and opinions on how a song should be played", weights: { SelfAwareness: 1, Intuition: 1 }},
+  { text: "I am able to identify problems and communicate how to fix them in a rehearsal", weights: { SelfAwareness: 1, Intuition: 1 }},
+  { text: "I could lead a band effectively as a music director", weights: { Intuition: 1 }},
+  { text: "I feel comfortable in flow moments", weights: { Intuition: 1, Risk: 0.75 }},
+  { text: "I understand what my strengths and weaknesses are as a musician", weights: { SelfAwareness: 1 }},
+  { text: "I know what a montuno is", weights: { Diversity: 1 }},
+  { text: "I understand the basic rhythms of music from different Latin cultures", weights: { Diversity: 1 }},
+  { text: "Music from different genres can be adapted to suit the performer", weights: { Diversity: 1 }},
+  { text: "I can play multiple instruments", weights: { Diversity: 1 }},
+  { text: "I can communicate musical concepts with other musicians effectively", weights: { Diversity: 1 }}
+];
+
+
+
+
+shuffle(questions);
+
+// INIT
+categories.forEach(c => {
+  scores[c] = 0;
+  maxScores[c] = 0;
+});
+
+function shuffle(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    let j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
+
+function loadQuestion() {
+  document.getElementById("questionText").innerText =
+    (current + 1) + ". " + questions[current].text;
+
+  document.getElementById("progressBar").style.width =
+    (((current + 1) / questions.length) * 100) + "%";
+}
+
+function answer(val) {
+  answers[current] = val;
+  current++;
+
+  if (current < questions.length) {
+    loadQuestion();
+  } else {
+    calculateResults();
+  }
+}
+
+function calculateResults() {
+  questions.forEach((q, i) => {
+    let answer = answers[i];
+
+    for (let cat in q.weights) {
+      scores[cat] += answer * q.weights[cat];
+      maxScores[cat] += 5 * q.weights[cat];
+    }
+  });
+
+  // normalize
+  for (let cat in scores) {
+    scores[cat] = Math.round((scores[cat] / maxScores[cat]) * 100);
+  }
+
+  showResults();
+}
+
+function showResults() {
+  document.getElementById("quiz").style.display = "none";
+  document.getElementById("results").style.display = "block";
+
+  const ctx = document.getElementById("chart");
+
+  new Chart(ctx, {
+    type: "radar",
+    data: {
+      labels: categories,
+      datasets: [{
+        label: "Your Profile",
+        data: categories.map(c => scores[c])
+      }]
+    },
+    options: {
+      scales: {
+        r: {
+          beginAtZero: true,
+          max: 100
+        }
+      }
+    }
+  });
+
+  // summary
+  let sorted = Object.entries(scores).sort((a,b) => b[1] - a[1]);
+
+  let top = sorted.slice(0,2).map(x => x[0]).join(" & ");
+  let bottom = sorted.slice(-2).map(x => x[0]).join(" & ");
+
+  document.getElementById("summary").innerHTML =
+    `<strong>Top Strengths:</strong> ${top}<br><br>
+     <strong>Growth Areas:</strong> ${bottom}`;
+}
+
+// start
+loadQuestion();
+</script>
+
+</body>
+</html>
